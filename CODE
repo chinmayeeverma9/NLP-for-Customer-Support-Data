@@ -1,0 +1,79 @@
+import pandas as pd
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+import re
+
+# Load data
+data = pd.read_csv('customer_support_tickets.csv')
+
+# Preprocessing functions
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+
+def preprocess_text(text):
+    text = re.sub(r'[^\w\s]', '', text.lower())  # Remove punctuation and lowercase
+    tokens = word_tokenize(text)  # Tokenize
+    tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]  # Lemmatize and remove stop words
+    return ' '.join(tokens)
+
+data['processed_text'] = data['text'].apply(preprocess_text)
+
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+
+# Vectorization
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(data['processed_text'])
+y = data['category']
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train model
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+# Evaluate model
+y_pred = model.predict(X_test)
+print('Accuracy:', accuracy_score(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+
+
+from sklearn.metrics import confusion_matrix, plot_confusion_matrix
+
+# Confusion matrix
+cm = confusion_matrix(y_test, y_pred)
+print('Confusion Matrix:\n', cm)
+
+# Feature importance
+feature_names = vectorizer.get_feature_names_out()
+feature_importances = model.coef_[0]
+important_features = sorted(zip(feature_importances, feature_names), reverse=True)[:10]
+print('Top 10 Important Features:', important_features)
+
+# Visualize confusion matrix
+import matplotlib.pyplot as plt
+plot_confusion_matrix(model, X_test, y_test)
+plt.show()
+
+
+# Common customer concerns
+category_counts = data['category'].value_counts()
+print('Common Customer Concerns:\n', category_counts)
+
+# Recommendations for automated response
+recommendations = {
+    "Improve response templates for common queries": category_counts.idxmax(),
+    "Automate responses for repetitive inquiries": category_counts.idxmax()
+}
+print('Recommendations for Automated Response Systems:', recommendations)
+
+
